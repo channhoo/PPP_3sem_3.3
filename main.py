@@ -157,9 +157,23 @@ class App:
         self.screen.blit(label, label.get_rect(center=center))
 
     def _button(self, rect, text, active):
-        color = "#602b27" if active else "#49404e"
-        pygame.draw.rect(self.screen, color, rect, border_radius=8)
-        pygame.draw.rect(self.screen, "#ab927e", rect, 1, border_radius=8)
+        """Нарисовать кнопку с рамкой и подсветкой при наведении."""
+        hovered = rect.collidepoint(pygame.mouse.get_pos())
+        primary = rect == self.restart
+
+        fill = "#514556"
+        border = "#ab927e"
+        if primary:
+            fill = "#914f48" if hovered else "#753c3e"
+        elif active:
+            fill = "#756348" if hovered else "#665538"
+            border = GOLD
+        elif hovered:
+            fill = "#69576e"
+
+        pygame.draw.rect(self.screen, "#211a18", rect.move(0, 3), border_radius=8)
+        pygame.draw.rect(self.screen, fill, rect, border_radius=8)
+        pygame.draw.rect(self.screen, border, rect, 2, border_radius=8)
         self._text(text, rect.center)
 
     def _cell_rect(self, cell):
@@ -292,6 +306,7 @@ class App:
         """Нарисовать текущий кадр."""
         self.screen.blit(self.background, (0, 0))
         pygame.draw.rect(self.screen, DARK, (0, 0, WIDTH, 84))
+        pygame.draw.line(self.screen, "#ab927e", (0, 83), (WIDTH, 83), 2)
         self._text("Кот-сапёр", (165, 43), self.title_font)
 
         for level, rect in self.level_buttons.items():
