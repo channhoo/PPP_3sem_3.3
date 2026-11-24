@@ -2,6 +2,7 @@
 
 from math import cos, sin, tau
 from pathlib import Path
+from random import Random
 
 import pygame
 
@@ -30,6 +31,24 @@ def load_image(name, size, keep_ratio=True):
         size = image.get_rect().fit(pygame.Rect((0, 0), size)).size
     return pygame.transform.smoothscale(image, size)
 
+
+def make_tile(size, base, light, shadow, flecks):
+    """Нарисовать плитку с лёгкой пиксельной фактурой."""
+    tile = pygame.Surface((size, size), pygame.SRCALPHA)
+    rect = tile.get_rect()
+
+    pygame.draw.rect(tile, shadow, rect, border_radius=4)
+    pygame.draw.rect(tile, base, rect.inflate(-2, -2), border_radius=3)
+    pygame.draw.line(tile, light, (4, 2), (size - 5, 2))
+
+    rng = Random(17)
+    for _ in range(size // 2):
+        x = rng.randrange(4, size - 5)
+        y = rng.randrange(4, size - 5)
+        color = rng.choice(flecks)
+        pygame.draw.rect(tile, color, (x, y, rng.randint(1, 3), 2))
+
+    return tile
 
 class App:
     """Рисует игру и обрабатывает нажатия мыши и клавиатуры."""
@@ -64,6 +83,19 @@ class App:
         self.hit_time = 0
 
         self.tile = min(54, 736 // self.game.cols, 544 // self.game.rows)
+        size = self.tile - 2
+        self.closed_tile = make_tile(
+            size, "#686b47", "#91936b", "#41452f",
+            ("#717551", "#606544"),
+        )
+        self.open_tile = make_tile(
+            size, "#e4d8bf", "#fff1d5", "#ad9c81",
+            ("#eaddc5", "#dbcdb2"),
+        )
+        self.hit_tile = make_tile(
+            size, "#753c3e", "#af6862", "#4d292d",
+            ("#804648", "#6e3639"),
+        )
         self.board = pygame.Rect(
             0, 0, self.tile * self.game.cols, self.tile * self.game.rows
         )
@@ -150,11 +182,11 @@ class App:
             face = rect.inflate(-2, -2)
             opened = cell in self.game.opened
             hit = cell in self.game.hits
-            color = "#ddd1b8" if opened else "#656747"
+            tile_image = self.open_tile if opened else self.closed_tile
             if hit:
-                color = "#602b27"
-            pygame.draw.rect(self.screen, color, face, border_radius=4)
-
+                tile_image = self.hit_tile
+            self.screen.blit(tile_image, face.topleft)
+            
             if opened:
                 number = self.game.number(cell)
                 if number:
