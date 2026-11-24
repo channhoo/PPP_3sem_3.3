@@ -6,8 +6,7 @@ from random import Random
 
 import pygame
 
-from game import Game, LEVELS
-
+from game import LEVELS, Game
 
 ASSETS = Path(__file__).with_name("assets")
 WIDTH, HEIGHT = 1120, 700
@@ -39,22 +38,36 @@ def load_image(name, size, keep_ratio=True):
     return pygame.transform.smoothscale(image, size)
 
 
-def make_tile(size, base, light, shadow, flecks):
-    """Нарисовать плитку с лёгкой пиксельной фактурой."""
+def make_tile(size, base, light, shadow, flecks, grass=False):
+    """Нарисовать плитку с пиксельной фактурой."""
     tile = pygame.Surface((size, size), pygame.SRCALPHA)
     rect = tile.get_rect()
-
     pygame.draw.rect(tile, shadow, rect, border_radius=4)
-    pygame.draw.rect(tile, base, rect.inflate(-2, -2), border_radius=3)
-    pygame.draw.line(tile, light, (4, 2), (size - 5, 2))
+
+    inner = pygame.Rect(1, 1, size - 3, size - 4)
+    pygame.draw.rect(tile, base, inner, border_radius=3)
 
     rng = Random(17)
-    for _ in range(size // 2):
-        x = rng.randrange(4, size - 5)
-        y = rng.randrange(4, size - 5)
-        color = rng.choice(flecks)
-        pygame.draw.rect(tile, color, (x, y, rng.randint(1, 3), 2))
+    if grass:
+        block = max(3, size // 7)
+        tile.set_clip(inner.inflate(-2, -2))
 
+        for _ in range(16):
+            x = rng.randrange(2, size - 3)
+            y = rng.randrange(2, size - 4)
+            color = rng.choice(flecks)
+            pygame.draw.rect(tile, color, (x, y, block * 2, block))
+            pygame.draw.rect(tile, color, (x + block, y - block, block, block * 3))
+
+        tile.set_clip(None)
+    else:
+        for _ in range(size // 3):
+            x = rng.randrange(4, size - 5)
+            y = rng.randrange(4, size - 5)
+            pygame.draw.rect(tile, rng.choice(flecks), (x, y, 3, 2))
+
+    pygame.draw.line(tile, light, (4, 2), (size - 5, 2))
+    pygame.draw.line(tile, light, (2, 4), (2, size - 6))
     return tile
 
 
@@ -94,10 +107,11 @@ class App:
         size = self.tile - 2
         self.closed_tile = make_tile(
             size,
-            "#686b47",
-            "#91936b",
-            "#41452f",
-            ("#717551", "#606544"),
+            "#708038",
+            "#a7b758",
+            "#384520",
+            ("#839344", "#77873e", "#627332", "#55652c"),
+            grass=True,
         )
         self.open_tile = make_tile(
             size,
@@ -157,24 +171,34 @@ class App:
         self.screen.blit(label, label.get_rect(center=center))
 
     def _button(self, rect, text, active):
-        """Нарисовать кнопку с рамкой и подсветкой при наведении."""
+        """Нарисовать кнопку с тенью и подсветкой при наведении."""
         hovered = rect.collidepoint(pygame.mouse.get_pos())
-        primary = rect == self.restart
+        text_color = "#472d22"
 
-        fill = "#514556"
-        border = "#ab927e"
-        if primary:
-            fill = "#914f48" if hovered else "#753c3e"
+        if rect == self.restart:
+            fill = "#b95b43" if hovered else "#a94228"
+            border = "#f0b18b"
+            highlight = "#df8a68"
+            text_color = "#fff1dc"
         elif active:
-            fill = "#756348" if hovered else "#665538"
-            border = GOLD
-        elif hovered:
-            fill = "#69576e"
+            fill = "#f7d998" if hovered else "#eac480"
+            border = "#ffebb6"
+            highlight = "#fff2cf"
+        else:
+            fill = "#fff0d1" if hovered else "#e6d3ad"
+            border = "#be9768"
+            highlight = "#fff2d9"
 
         pygame.draw.rect(self.screen, "#211a18", rect.move(0, 3), border_radius=8)
         pygame.draw.rect(self.screen, fill, rect, border_radius=8)
         pygame.draw.rect(self.screen, border, rect, 2, border_radius=8)
-        self._text(text, rect.center)
+        pygame.draw.line(
+            self.screen,
+            highlight,
+            (rect.left + 8, rect.top + 3),
+            (rect.right - 9, rect.top + 3),
+        )
+        self._text(text, rect.center, color=text_color)
 
     def _cell_rect(self, cell):
         row, col = cell
@@ -228,9 +252,9 @@ class App:
             elif cell in self.game.flags:
                 self._flag(face, wrong=ended)
 
-            if not ended and not opened and not hit:
-                if rect.collidepoint(mouse):
-                    pygame.draw.rect(self.screen, GOLD, face, 2, border_radius=4)
+            can_hover = not ended and not opened and not hit
+            if can_hover and rect.collidepoint(mouse):
+                pygame.draw.rect(self.screen, GOLD, face, 2, border_radius=4)
 
         if self.hit_cell is not None and elapsed < 380:
             x, y = self._cell_rect(self.hit_cell).center
@@ -285,14 +309,33 @@ class App:
         for index in range(3):
             self._draw_heart(869 + index * 54, 125, index < self.game.lives)
 
-        self._text(title, (center_x, 183))
+        finished = self.game.status in ("won", "lost")
+        if not finished:
+            self._text(title, (center_x, 183))
 
         picture_rect = picture.get_rect(center=(center_x, 411))
         if picture is not self.cat:
+            border = "#ab927e"
+            banner_color = DARK
+            if self.game.status == "won":
+                border, banner_color = "#edc474", "#53612d"
+            elif self.game.status == "lost":
+                border, banner_color = "#dc896c", "#753c3e"
+
             frame = picture_rect.inflate(12, 12)
+            pygame.draw.rect(self.screen, "#211a18", frame.move(0, 4), border_radius=9)
             pygame.draw.rect(self.screen, DARK, frame, border_radius=9)
-            pygame.draw.rect(self.screen, "#ab927e", frame, 2, border_radius=9)
+            pygame.draw.rect(self.screen, border, frame, 3, border_radius=9)
+
         self.screen.blit(picture, picture_rect)
+
+        if finished:
+            banner = pygame.Rect(0, 0, 180, 36)
+            banner.midbottom = (center_x, picture_rect.top + 14)
+            pygame.draw.rect(self.screen, "#211a18", banner.move(0, 3), border_radius=8)
+            pygame.draw.rect(self.screen, banner_color, banner, border_radius=8)
+            pygame.draw.rect(self.screen, border, banner, 2, border_radius=8)
+            self._text(title, banner.center)
 
         footer = pygame.Rect(813, 622, 256, 36)
         pygame.draw.rect(self.screen, DARK, footer, border_radius=8)
@@ -302,12 +345,31 @@ class App:
             self.small_font,
         )
 
+    def _title_flower(self, x, y):
+        """Нарисовать маленький сиреневый цветок в шапке."""
+        pygame.draw.rect(self.screen, "#596336", (x - 2, y + 3, 4, 13))
+        pygame.draw.rect(self.screen, "#82904b", (x - 8, y + 9, 7, 4))
+        pygame.draw.rect(self.screen, "#82904b", (x + 2, y + 7, 7, 4))
+
+        for dx, dy in ((0, -7), (-7, 0), (7, 0), (0, 7)):
+            petal = pygame.Rect(x + dx - 4, y + dy - 4, 8, 8)
+            pygame.draw.rect(self.screen, "#806397", petal.move(0, 2))
+            pygame.draw.rect(self.screen, "#cbb4e2", petal)
+
+        pygame.draw.rect(self.screen, "#f4ce86", (x - 3, y - 3, 6, 6))
+
     def draw(self):
         """Нарисовать текущий кадр."""
         self.screen.blit(self.background, (0, 0))
         pygame.draw.rect(self.screen, DARK, (0, 0, WIDTH, 84))
         pygame.draw.line(self.screen, "#ab927e", (0, 83), (WIDTH, 83), 2)
-        self._text("Кот-сапёр", (165, 43), self.title_font)
+        title = "Кот-сапёр"
+        half_width = self.title_font.size(title)[0] // 2
+        offset = half_width + 19
+
+        self._title_flower(165 - offset, 42)
+        self._title_flower(165 + offset, 42)
+        self._text(title, (165, 43), self.title_font)
 
         for level, rect in self.level_buttons.items():
             self._button(rect, level, active=(level == self.level))
@@ -319,11 +381,6 @@ class App:
 
         self._draw_board(elapsed)
         self._draw_sidebar(elapsed)
-        self._text(
-            "ЛКМ — открыть    ПКМ — флажок    R — новая игра",
-            (392, 675),
-            self.small_font,
-        )
 
     def run(self):
         """Обновлять окно до его закрытия."""
