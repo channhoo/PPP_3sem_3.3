@@ -15,8 +15,15 @@ CREAM = "#f2e8d5"
 DARK = "#29232b"
 GOLD = "#f4ce86"
 NUMBER_COLORS = (
-    DARK, "#294666", "#36562c", "#922f28", "#544284",
-    "#774323", "#286569", "#542842", DARK,
+    DARK,
+    "#294666",
+    "#36562c",
+    "#922f28",
+    "#544284",
+    "#774323",
+    "#286569",
+    "#542842",
+    DARK,
 )
 
 
@@ -49,6 +56,7 @@ def make_tile(size, base, light, shadow, flecks):
         pygame.draw.rect(tile, color, (x, y, rng.randint(1, 3), 2))
 
     return tile
+
 
 class App:
     """Рисует игру и обрабатывает нажатия мыши и клавиатуры."""
@@ -85,15 +93,24 @@ class App:
         self.tile = min(54, 736 // self.game.cols, 544 // self.game.rows)
         size = self.tile - 2
         self.closed_tile = make_tile(
-            size, "#686b47", "#91936b", "#41452f",
+            size,
+            "#686b47",
+            "#91936b",
+            "#41452f",
             ("#717551", "#606544"),
         )
         self.open_tile = make_tile(
-            size, "#e4d8bf", "#fff1d5", "#ad9c81",
+            size,
+            "#e4d8bf",
+            "#fff1d5",
+            "#ad9c81",
             ("#eaddc5", "#dbcdb2"),
         )
         self.hit_tile = make_tile(
-            size, "#753c3e", "#af6862", "#4d292d",
+            size,
+            "#753c3e",
+            "#af6862",
+            "#4d292d",
             ("#804648", "#6e3639"),
         )
         self.board = pygame.Rect(
@@ -104,9 +121,7 @@ class App:
             "arial,dejavusans", int(self.tile * 0.6), True
         )
         size = self.tile - 4
-        icon_size = self.bomb_image.get_rect().fit(
-            pygame.Rect(0, 0, size, size)
-        ).size
+        icon_size = self.bomb_image.get_rect().fit(pygame.Rect(0, 0, size, size)).size
         self.bomb = pygame.transform.smoothscale(self.bomb_image, icon_size)
         self.faded_bomb = self.bomb.copy()
         self.faded_bomb.set_alpha(105)
@@ -158,17 +173,14 @@ class App:
 
     def _flag(self, rect, wrong):
         x, y = rect.x + rect.width // 3, rect.y + rect.height // 4
-        pygame.draw.line(
-            self.screen, CREAM, (x, y), (x, rect.bottom - 4), 2
-        )
+        pygame.draw.line(self.screen, CREAM, (x, y), (x, rect.bottom - 4), 2)
         pygame.draw.polygon(
-            self.screen, "#ea926f",
+            self.screen,
+            "#ea926f",
             [(x, y), (rect.right - 4, y + 4), (x, y + 8)],
         )
         if wrong:
-            pygame.draw.line(
-                self.screen, GOLD, rect.bottomleft, rect.topright, 2
-            )
+            pygame.draw.line(self.screen, GOLD, rect.bottomleft, rect.topright, 2)
 
     def _draw_board(self, elapsed):
         frame = self.board.inflate(12, 12)
@@ -186,12 +198,14 @@ class App:
             if hit:
                 tile_image = self.hit_tile
             self.screen.blit(tile_image, face.topleft)
-            
+
             if opened:
                 number = self.game.number(cell)
                 if number:
                     self._text(
-                        str(number), rect.center, self.number_font,
+                        str(number),
+                        rect.center,
+                        self.number_font,
                         NUMBER_COLORS[number],
                     )
             elif hit or (ended and cell in self.game.mines):
@@ -202,9 +216,7 @@ class App:
 
             if not ended and not opened and not hit:
                 if rect.collidepoint(mouse):
-                    pygame.draw.rect(
-                        self.screen, GOLD, face, 2, border_radius=4
-                    )
+                    pygame.draw.rect(self.screen, GOLD, face, 2, border_radius=4)
 
         if self.hit_cell is not None and elapsed < 380:
             x, y = self._cell_rect(self.hit_cell).center
@@ -216,11 +228,35 @@ class App:
                 py = int(y + sin(angle) * radius)
                 pygame.draw.rect(self.screen, GOLD, (px, py, size, size))
 
-    def _draw_sidebar(self, elapsed):
-        panel = pygame.Rect(786, 108, 310, 544)
-        pygame.draw.rect(self.screen, DARK, panel, border_radius=14)
+    def _draw_heart(self, x, y, filled):
+        pattern = (
+            ".##...##.",
+            "####.####",
+            "#########",
+            "#########",
+            ".#######.",
+            "..#####..",
+            "...###...",
+            "....#....",
+        )
+        pixel = 4
+        color = "#e77b77" if filled else "#62556a"
+        shadow = "#813f49" if filled else "#3d3445"
 
+        for row, line in enumerate(pattern):
+            for col, mark in enumerate(line):
+                if mark == "#":
+                    rect = pygame.Rect(x + col * pixel, y + row * pixel, pixel, pixel)
+                    pygame.draw.rect(self.screen, shadow, rect.move(0, 3))
+                    pygame.draw.rect(self.screen, color, rect)
+
+        if filled:
+            pygame.draw.rect(self.screen, "#ffb9b2", (x + 4, y + 4, pixel * 2, pixel))
+
+    def _draw_sidebar(self, elapsed):
+        center_x = 941
         title, picture = "В игре", self.cat
+
         if self.game.status == "won":
             title, picture = "Победа", self.win
         elif self.game.status == "lost":
@@ -228,21 +264,28 @@ class App:
         elif elapsed < 900:
             title, picture = "Айай…", self.lose
 
-        for index in range(3):
-            x = 887 + 54 * index
-            color = "#e77b77" if index < self.game.lives else "#50434d"
-            pygame.draw.circle(self.screen, color, (x - 7, 146), 9)
-            pygame.draw.circle(self.screen, color, (x + 7, 146), 9)
-            pygame.draw.polygon(
-                self.screen, color,
-                [(x - 15, 149), (x + 15, 149), (x, 168)],
-            )
+        header = pygame.Rect(813, 111, 256, 96)
+        pygame.draw.rect(self.screen, DARK, header, border_radius=12)
+        pygame.draw.rect(self.screen, "#ab927e", header, 1, border_radius=12)
 
-        self._text(title, (941, 193))
-        self.screen.blit(picture, picture.get_rect(center=(941, 408)))
+        for index in range(3):
+            self._draw_heart(869 + index * 54, 125, index < self.game.lives)
+
+        self._text(title, (center_x, 183))
+
+        picture_rect = picture.get_rect(center=(center_x, 411))
+        if picture is not self.cat:
+            frame = picture_rect.inflate(12, 12)
+            pygame.draw.rect(self.screen, DARK, frame, border_radius=9)
+            pygame.draw.rect(self.screen, "#ab927e", frame, 2, border_radius=9)
+        self.screen.blit(picture, picture_rect)
+
+        footer = pygame.Rect(813, 622, 256, 36)
+        pygame.draw.rect(self.screen, DARK, footer, border_radius=8)
         self._text(
             f"Мин: {self.game.mine_count}    Флажков: {len(self.game.flags)}",
-            (941, 628), self.small_font,
+            footer.center,
+            self.small_font,
         )
 
     def draw(self):
@@ -263,7 +306,8 @@ class App:
         self._draw_sidebar(elapsed)
         self._text(
             "ЛКМ — открыть    ПКМ — флажок    R — новая игра",
-            (392, 675), self.small_font,
+            (392, 675),
+            self.small_font,
         )
 
     def run(self):
